@@ -9,7 +9,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "deploy": "ng deploy --base-href=/a2ui-debugger/"
   },
   "prettier": {
     "printWidth": 100,
@@ -67,6 +68,7 @@
     "@types/node": "^20.17.19",
     "@types/uuid": "^10.0.0",
     "@vitest/browser": "^4.0.15",
+    "angular-cli-ghpages": "3.0.2",
     "concurrently": "^9.2.1",
     "cypress": "^15.6.0",
     "jasmine-core": "~5.9.0",
