@@ -178,19 +178,32 @@ export class LogViewerComponent {
   }
 
   processInput(input: string) {
-    if (!input.trim()) return;
+    const trimmed = input.trim();
+    if (!trimmed) return;
 
     try {
-      // Handle multiple JSON objects (JSONL) or single JSON
-      const lines = input.trim().split('\n');
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const msg = JSON.parse(line);
-        this.debuggerService.processMessage(msg);
+      // First try to parse as a single JSON object or array (supports pretty-printed)
+      const data = JSON.parse(trimmed);
+      if (Array.isArray(data)) {
+        for (const msg of data) {
+          this.debuggerService.processMessage(msg);
+        }
+      } else {
+        this.debuggerService.processMessage(data);
       }
     } catch (e) {
-      console.error('Failed to parse input', e);
-      alert('Invalid JSON input');
+      // If that fails, try processing as JSONL (newline separated)
+      try {
+        const lines = trimmed.split('\n');
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const msg = JSON.parse(line);
+          this.debuggerService.processMessage(msg);
+        }
+      } catch (innerError) {
+        console.error('Failed to parse input', innerError);
+        alert('Invalid JSON input: ' + (innerError instanceof Error ? innerError.message : String(innerError)));
+      }
     }
   }
 
