@@ -14,7 +14,7 @@ export class DebuggerService {
 
   readonly history = signal<LogEntry[]>([]);
   readonly currentIndex = signal<number>(-1);
-  readonly currentVersion = signal<string>('0.8');
+  readonly currentVersion = signal<string>('0.9');
 
   // Compute messages based on current index for the log viewer
   readonly messages = computed(() => {
