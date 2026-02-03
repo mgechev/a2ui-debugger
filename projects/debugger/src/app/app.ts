@@ -7,18 +7,19 @@ import { TimelineComponent } from './timeline';
 @Component({
   selector: 'app-root',
   template: `
-    <div class="app-container">
+    <div class="app-container" [class.resizing]="isResizing">
       <header class="app-header">
         <div class="logo">A2UI Debugger</div>
         <button class="theme-toggle" (click)="toggleTheme()" [attr.aria-label]="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'">
           {{ isDarkMode ? '☀️' : '🌙' }}
         </button>
       </header>
-      <div class="content-wrapper">
-        <div class="sidebar">
+      <div class="content-wrapper" (mouseup)="stopResize()" (mousemove)="onResize($event)" (mouseleave)="stopResize()">
+        <div class="left-panel" [style.width.px]="leftPanelWidth">
           <app-log-viewer></app-log-viewer>
         </div>
-        <div class="main-content">
+        <div class="splitter" (mousedown)="startResize($event)"></div>
+        <div class="right-panel">
           <div class="preview-pane">
              <app-preview></app-preview>
           </div>
@@ -46,6 +47,10 @@ import { TimelineComponent } from './timeline';
       height: 100%;
       width: 100%;
     }
+    .app-container.resizing {
+      cursor: col-resize;
+      user-select: none;
+    }
     .app-header {
       height: 50px;
       padding: 0 16px;
@@ -54,6 +59,7 @@ import { TimelineComponent } from './timeline';
       justify-content: space-between;
       background-color: var(--header-bg);
       border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
     }
     .logo {
       font-weight: 600;
@@ -74,20 +80,35 @@ import { TimelineComponent } from './timeline';
       display: flex;
       flex: 1;
       overflow: hidden;
+      position: relative;
     }
-    .sidebar {
-      width: 400px;
+    .left-panel {
       height: 100%;
       overflow: hidden;
-      border-right: 1px solid var(--border-color);
       background-color: var(--panel-bg);
+      flex-shrink: 0;
+      min-width: 200px;
+      max-width: 80%;
     }
-    .main-content {
+    .splitter {
+      width: 5px;
+      height: 100%;
+      background-color: var(--border-color);
+      cursor: col-resize;
+      transition: background-color 0.2s;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    .splitter:hover, .app-container.resizing .splitter {
+      background-color: var(--accent-color);
+    }
+    .right-panel {
       flex: 1;
       display: flex;
       flex-direction: column;
       height: 100%;
       overflow: hidden;
+      min-width: 200px;
     }
     .preview-pane {
       flex: 2;
@@ -105,6 +126,7 @@ import { TimelineComponent } from './timeline';
     app-timeline {
       display: block;
       width: 100%;
+      flex-shrink: 0;
     }
   `]
 })
@@ -112,13 +134,39 @@ export class AppComponent {
   title = 'debugger';
   isDarkMode = false;
 
+  // Layout State
+  leftPanelWidth = 500;
+  isResizing = false;
+
   constructor() {
     this.initializeTheme();
+    // Default to roughly 50% if window is available
+    if (typeof window !== 'undefined') {
+      this.leftPanelWidth = window.innerWidth / 2;
+    }
   }
 
   toggleTheme() {
     this.isDarkMode = !this.isDarkMode;
     this.updateTheme();
+  }
+
+  startResize(event: MouseEvent) {
+    this.isResizing = true;
+    event.preventDefault(); // Prevent text selection
+  }
+
+  onResize(event: MouseEvent) {
+    if (!this.isResizing) return;
+    // Keep between 200px and window width - 200px
+    const newWidth = event.clientX;
+    if (newWidth > 200 && newWidth < window.innerWidth - 200) {
+      this.leftPanelWidth = newWidth;
+    }
+  }
+
+  stopResize() {
+    this.isResizing = false;
   }
 
   private initializeTheme() {
