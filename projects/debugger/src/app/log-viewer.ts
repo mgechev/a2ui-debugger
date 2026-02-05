@@ -564,59 +564,76 @@ export class LogViewerComponent implements OnChanges {
 
       // Only stream if connected and there are new messages
       if (this.debuggerService.isConnected() && history.length > this.lastHistoryLength) {
-        // Append new messages to the editor content
-        let currentCode = this.code.trim();
         const newEntries = history.slice(this.lastHistoryLength);
 
-        // If empty, start an array or object? Start array for logs.
-        if (!currentCode) {
-          currentCode = '[\n]';
-        }
+        if (this.editor && typeof monaco !== 'undefined') {
+          const model = this.editor.getModel();
+          const fullText = model.getValue();
+          const match = fullText.match(/\]\s*$/); // Find closing bracket
 
-        // Check if it looks like an array we can append to
-        const arrayEndRegex = /\]\s*$/;
-        if (arrayEndRegex.test(currentCode)) {
-          // It's an array, remove the closing brace and append items
-          let body = currentCode.replace(arrayEndRegex, '');
-          // Add comma if not just opening bracket
-          if (!body.trim().endsWith('[')) {
-            body += ',\n';
-          }
+          let insertText = '';
+          let range = null;
 
-          const entriesStrings = newEntries.map(e => JSON.stringify(e.message, null, 2));
-          this.code = body + entriesStrings.join(',\n') + '\n]';
+          const jsonEntries = newEntries.map(e => JSON.stringify(e.message, null, 2)).join(',\n');
 
-        } else {
-          // It's likely a single object or invalid. 
-          // If we force array, we overwrite or wrap?
-          // Let's wrap current content if it looks like a valid object, or just replace/append?
-          // Simplest for "stacking up": Convert to array if not already.
+          if (match) {
+            // Found closing bracket, insert before it
+            const startOffset = match.index!;
+            const textBefore = fullText.substring(0, startOffset).trim();
+            const needsComma = !textBefore.endsWith('[');
 
-          // If it was a single object, wrap it:
-          if (currentCode.startsWith('{')) {
-            const entriesStrings = newEntries.map(e => JSON.stringify(e.message, null, 2));
-            this.code = `[\n${currentCode},\n${entriesStrings.join(',\n')}\n]`;
+            insertText = (needsComma ? ',\n' : '\n') + jsonEntries + '\n]';
+
+            // Range covering the closing bracket
+            const startPos = model.getPositionAt(startOffset);
+            const endPos = model.getPositionAt(fullText.length);
+            range = new monaco.Range(startPos.lineNumber, startPos.column, endPos.lineNumber, endPos.column);
           } else {
-            // Just replace or append? Let's just append to array
-            const entriesStrings = newEntries.map(e => JSON.stringify(e.message, null, 2));
-            this.code = `[\n${entriesStrings.join(',\n')}\n]`;
+            // No valid array found? Just append to bottom
+            const lineCount = model.getLineCount();
+            const lastLineLength = model.getLineMaxColumn(lineCount);
+            range = new monaco.Range(lineCount, lastLineLength, lineCount, lastLineLength);
+            insertText = '\n' + jsonEntries;
+          }
+
+          // Check if user is near bottom (sticky scroll)
+          const scrollTop = this.editor.getScrollTop();
+          const scrollHeight = this.editor.getScrollHeight();
+          const viewportHeight = this.editor.getLayoutInfo().height;
+          const isAtBottom = (scrollHeight - scrollTop - viewportHeight) < 50;
+
+          // Apply edit
+          this.editor.executeEdits('sse-update', [{
+            range: range,
+            text: insertText,
+            forceMoveMarkers: true
+          }]);
+
+          // Restore stickiness
+          if (isAtBottom) {
+            this.editor.revealLine(model.getLineCount());
+          }
+        } else {
+          // Fallback if editor not ready (rare during streaming)
+          const entriesStrings = newEntries.map(e => JSON.stringify(e.message, null, 2));
+          if (this.code.trim().endsWith(']')) {
+            this.code = this.code.trim().replace(/\]\s*$/, '') + (this.code.trim().endsWith('[') ? '' : ',') + '\n' + entriesStrings.join(',\n') + '\n]';
+          } else {
+            this.code += '\n' + entriesStrings.join('\n');
           }
         }
 
-        // Auto-scroll to bottom
-        if (this.editor) {
-          setTimeout(() => {
-            const model = this.editor.getModel();
-            if (model) {
-              this.editor.revealLine(model.getLineCount());
-            }
-          });
-        }
-
-        // Auto-scroll message list
+        // Auto-scroll message list (sticky)
         if (this.messageList) {
+          const el = this.messageList.nativeElement;
+          // Check if at bottom before text update pushes it down (approximate)
+          // We use a safe threshold (e.g. 20px)
+          const isAtBottom = Math.abs(el.scrollHeight - el.scrollTop - el.clientHeight) < 20;
+
           setTimeout(() => {
-            this.messageList.nativeElement.scrollTop = this.messageList.nativeElement.scrollHeight;
+            if (isAtBottom) {
+              el.scrollTop = el.scrollHeight;
+            }
           });
         }
       }
