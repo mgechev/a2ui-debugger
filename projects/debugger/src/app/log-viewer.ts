@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, inject, effect } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject, effect, signal } from '@angular/core';
 import { DebuggerService } from './debugger.service';
 import { Types } from '@a2ui/lit/0.8';
 import { CommonModule } from '@angular/common';
@@ -170,6 +170,22 @@ const A2UI_SCHEMA_0_9 = {
               </select>
             </div>
           </div>
+          <div class="sse-trigger">
+             <div class="sse-header" (click)="toggleSseExpanded()">
+               <span class="status-dot" [class.connected]="debuggerService.isConnected()"></span>
+               <span>SSE Stream</span>
+               <span class="arrow">{{ isSseExpanded() ? '▼' : '▶' }}</span>
+             </div>
+          </div>
+        </div>
+        
+        <div class="sse-panel" *ngIf="isSseExpanded()">
+           <div class="sse-form">
+              <input type="text" [(ngModel)]="sseUrl" placeholder="SSE URL" class="url-input">
+              <button (click)="toggleConnection()" class="connect-btn" [class.connected]="debuggerService.isConnected()">
+                {{ debuggerService.isConnected() ? 'Disconnect' : 'Connect' }}
+              </button>
+           </div>
         </div>
         
         <div class="input-area">
@@ -274,6 +290,63 @@ const A2UI_SCHEMA_0_9 = {
       display: flex;
       align-items: center;
       gap: 12px;
+    }
+
+    .sse-trigger {
+       margin-left: auto;
+    }
+    .sse-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .sse-header:hover {
+      background: var(--bg-color);
+    }
+    
+    .sse-panel {
+      background: var(--bg-color);
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px;
+    }
+    .sse-form {
+      display: flex;
+      gap: 8px;
+    }
+    .url-input {
+      flex: 1;
+      padding: 4px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--panel-bg);
+      color: var(--text-color);
+      font-size: 11px;
+    }
+    .connect-btn {
+      padding: 4px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--accent-color);
+      color: white;
+      cursor: pointer;
+      font-size: 11px;
+      border: none;
+    }
+    .connect-btn.connected {
+      background: #e74c3c;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+    .status-dot.connected {
+      background: #2ecc71;
     }
     
     .version-selector {
@@ -432,6 +505,21 @@ export class LogViewerComponent {
   debuggerService = inject(DebuggerService);
   messages = this.debuggerService.messages;
   currentVersion = this.debuggerService.currentVersion;
+
+  sseUrl = 'http://localhost:8000/stream';
+  isSseExpanded = signal(false);
+
+  toggleSseExpanded() {
+    this.isSseExpanded.update(v => !v);
+  }
+
+  toggleConnection() {
+    if (this.debuggerService.isConnected()) {
+      this.debuggerService.disconnect();
+    } else {
+      this.debuggerService.connect(this.sseUrl);
+    }
+  }
 
   code: string = '';
   errorMessage: string = '';

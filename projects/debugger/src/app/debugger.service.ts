@@ -94,4 +94,46 @@ export class DebuggerService {
   getProcessor() {
     return this.processor;
   }
+
+  private eventSource: EventSource | null = null;
+  readonly isConnected = signal(false);
+
+  connect(url: string) {
+    if (this.eventSource) {
+      this.disconnect();
+    }
+
+    try {
+      this.eventSource = new EventSource(url);
+
+      this.eventSource.onopen = () => {
+        this.isConnected.set(true);
+      };
+
+      this.eventSource.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          this.processMessage(message);
+        } catch (e) {
+          console.error('Failed to parse SSE message', e);
+        }
+      };
+
+      this.eventSource.onerror = (error) => {
+        console.error('SSE Error', error);
+        this.disconnect();
+      };
+    } catch (e) {
+      console.error('Failed to connect to SSE', e);
+      this.isConnected.set(false);
+    }
+  }
+
+  disconnect() {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+    this.isConnected.set(false);
+  }
 }
