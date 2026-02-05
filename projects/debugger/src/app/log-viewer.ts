@@ -564,12 +564,43 @@ export class LogViewerComponent implements OnChanges {
 
       // Only stream if connected and there are new messages
       if (this.debuggerService.isConnected() && history.length > this.lastHistoryLength) {
+        // Append new messages to the editor content
+        let currentCode = this.code.trim();
         const newEntries = history.slice(this.lastHistoryLength);
 
-        // Append new messages to the editor content
-        for (const entry of newEntries) {
-          const json = JSON.stringify(entry.message, null, 2);
-          this.code = this.code ? `${this.code}\n${json}` : json;
+        // If empty, start an array or object? Start array for logs.
+        if (!currentCode) {
+          currentCode = '[\n]';
+        }
+
+        // Check if it looks like an array we can append to
+        const arrayEndRegex = /\]\s*$/;
+        if (arrayEndRegex.test(currentCode)) {
+          // It's an array, remove the closing brace and append items
+          let body = currentCode.replace(arrayEndRegex, '');
+          // Add comma if not just opening bracket
+          if (!body.trim().endsWith('[')) {
+            body += ',\n';
+          }
+
+          const entriesStrings = newEntries.map(e => JSON.stringify(e.message, null, 2));
+          this.code = body + entriesStrings.join(',\n') + '\n]';
+
+        } else {
+          // It's likely a single object or invalid. 
+          // If we force array, we overwrite or wrap?
+          // Let's wrap current content if it looks like a valid object, or just replace/append?
+          // Simplest for "stacking up": Convert to array if not already.
+
+          // If it was a single object, wrap it:
+          if (currentCode.startsWith('{')) {
+            const entriesStrings = newEntries.map(e => JSON.stringify(e.message, null, 2));
+            this.code = `[\n${currentCode},\n${entriesStrings.join(',\n')}\n]`;
+          } else {
+            // Just replace or append? Let's just append to array
+            const entriesStrings = newEntries.map(e => JSON.stringify(e.message, null, 2));
+            this.code = `[\n${entriesStrings.join(',\n')}\n]`;
+          }
         }
 
         // Auto-scroll to bottom
@@ -635,7 +666,12 @@ export class LogViewerComponent implements OnChanges {
       schemas: [{
         uri: 'http://a2ui/schema.json',
         fileMatch: ['*'],
-        schema: schema
+        schema: {
+          oneOf: [
+            schema,
+            { type: 'array', items: schema }
+          ]
+        }
       }],
       enableSchemaRequest: false
     });
