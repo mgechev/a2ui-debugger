@@ -223,7 +223,7 @@ const A2UI_SCHEMA_0_9 = {
           </div>
         </div>
 
-        <div class="message-list">
+        <div class="message-list" #messageList>
           @for (entry of messages(); track entry) {
             <div class="message-item">
               <div class="message-summary" (click)="toggleEntry(entry)">
@@ -502,6 +502,7 @@ const A2UI_SCHEMA_0_9 = {
   imports: [CommonModule, FormsModule, JsonTreeComponent, MonacoEditorModule]
 })
 export class LogViewerComponent {
+  @ViewChild('messageList') messageList!: ElementRef;
   debuggerService = inject(DebuggerService);
   messages = this.debuggerService.messages;
   currentVersion = this.debuggerService.currentVersion;
@@ -541,12 +542,54 @@ export class LogViewerComponent {
   // Layout State
   editorHeightPercentage = 70;
   private isResizing = false;
+  private lastHistoryLength = 0;
 
   constructor(private elementRef: ElementRef) {
     // Effect to react to version changes and update schema
     effect(() => {
       const ver = this.currentVersion();
       this.updateSchema(ver);
+    });
+
+    // Effect to stream messages to editor
+    effect(() => {
+      const history = this.debuggerService.history();
+
+      // Handle reset (history cleared)
+      if (history.length < this.lastHistoryLength) {
+        this.lastHistoryLength = history.length;
+        return;
+      }
+
+      // Only stream if connected and there are new messages
+      if (this.debuggerService.isConnected() && history.length > this.lastHistoryLength) {
+        const newEntries = history.slice(this.lastHistoryLength);
+
+        // Append new messages to the editor content
+        for (const entry of newEntries) {
+          const json = JSON.stringify(entry.message, null, 2);
+          this.code = this.code ? `${this.code}\n${json}` : json;
+        }
+
+        // Auto-scroll to bottom
+        if (this.editor) {
+          setTimeout(() => {
+            const model = this.editor.getModel();
+            if (model) {
+              this.editor.revealLine(model.getLineCount());
+            }
+          });
+        }
+
+        // Auto-scroll message list
+        if (this.messageList) {
+          setTimeout(() => {
+            this.messageList.nativeElement.scrollTop = this.messageList.nativeElement.scrollHeight;
+          });
+        }
+      }
+
+      this.lastHistoryLength = history.length;
     });
   }
 
