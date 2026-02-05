@@ -589,11 +589,23 @@ export class LogViewerComponent implements OnChanges {
             const endPos = model.getPositionAt(fullText.length);
             range = new monaco.Range(startPos.lineNumber, startPos.column, endPos.lineNumber, endPos.column);
           } else {
-            // No valid array found? Just append to bottom
-            const lineCount = model.getLineCount();
-            const lastLineLength = model.getLineMaxColumn(lineCount);
-            range = new monaco.Range(lineCount, lastLineLength, lineCount, lastLineLength);
-            insertText = '\n' + jsonEntries;
+            // No closing bracket found. 
+            // If empty (or whitespace), start an array.
+            if (!fullText.trim()) {
+              const lineCount = model.getLineCount();
+              const lastLineLength = model.getLineMaxColumn(lineCount);
+              // Replace everything (which is nothing/whitespace) with new array
+              range = new monaco.Range(1, 1, lineCount, lastLineLength);
+              insertText = '[\n' + jsonEntries + '\n]';
+            } else {
+              // Has content but no closing bracket. Just append (user might have deleted it).
+              // We try to recover by just appending, assuming user knows what they are doing,
+              // OR we could force a wrap. For now, let's just append to avoid destroying user context.
+              const lineCount = model.getLineCount();
+              const lastLineLength = model.getLineMaxColumn(lineCount);
+              range = new monaco.Range(lineCount, lastLineLength, lineCount, lastLineLength);
+              insertText = '\n' + jsonEntries;
+            }
           }
 
           // Check if user is near bottom (sticky scroll)
