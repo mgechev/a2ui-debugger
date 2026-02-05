@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, inject, effect, signal, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, ElementRef, inject, effect, signal, input, viewChild } from '@angular/core';
 import { DebuggerService } from './debugger.service';
 import { Types } from '@a2ui/lit/0.8';
 import { CommonModule } from '@angular/common';
@@ -179,14 +179,16 @@ const A2UI_SCHEMA_0_9 = {
           </div>
         </div>
         
-        <div class="sse-panel" *ngIf="isSseExpanded()">
+        @if (isSseExpanded()) {
+          <div class="sse-panel">
            <div class="sse-form">
               <input type="text" [(ngModel)]="sseUrl" placeholder="SSE URL" class="url-input">
               <button (click)="toggleConnection()" class="connect-btn" [class.connected]="debuggerService.isConnected()">
                 {{ debuggerService.isConnected() ? 'Disconnect' : 'Connect' }}
               </button>
            </div>
-        </div>
+          </div>
+        }
         
         <div class="input-area">
           <ngx-monaco-editor
@@ -501,10 +503,11 @@ const A2UI_SCHEMA_0_9 = {
   standalone: true,
   imports: [CommonModule, FormsModule, JsonTreeComponent, MonacoEditorModule]
 })
-export class LogViewerComponent implements OnChanges {
-  @Input() isDarkMode = false;
-  @ViewChild('messageList') messageList!: ElementRef;
+export class LogViewerComponent {
+  isDarkMode = input(false);
+  messageList = viewChild<ElementRef>('messageList');
   debuggerService = inject(DebuggerService);
+  elementRef = inject(ElementRef);
   messages = this.debuggerService.messages;
   currentVersion = this.debuggerService.currentVersion;
 
@@ -545,7 +548,14 @@ export class LogViewerComponent implements OnChanges {
   private isResizing = false;
   private lastHistoryLength = 0;
 
-  constructor(private elementRef: ElementRef) {
+  constructor() {
+    // Effect to synchronize theme
+    effect(() => {
+      // Accessing the signal registers dependency
+      const dark = this.isDarkMode();
+      this.updateEditorTheme();
+    });
+
     // Effect to react to version changes and update schema
     effect(() => {
       const ver = this.currentVersion();
@@ -636,8 +646,9 @@ export class LogViewerComponent implements OnChanges {
         }
 
         // Auto-scroll message list (sticky)
-        if (this.messageList) {
-          const el = this.messageList.nativeElement;
+        const msgList = this.messageList();
+        if (msgList) {
+          const el = msgList.nativeElement;
           // Check if at bottom before text update pushes it down (approximate)
           // We use a safe threshold (e.g. 20px)
           const isAtBottom = Math.abs(el.scrollHeight - el.scrollTop - el.clientHeight) < 20;
@@ -654,18 +665,13 @@ export class LogViewerComponent implements OnChanges {
     });
   }
 
-  ngOnChanges(changes: SimpleChanges) {
-    if (changes['isDarkMode']) {
-      this.updateEditorTheme();
-    }
-  }
-
   updateEditorTheme() {
+    const isDark = this.isDarkMode();
     if (this.editor && typeof monaco !== 'undefined') {
-      monaco.editor.setTheme(this.isDarkMode ? 'vs-dark' : 'vs');
+      monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs');
     } else {
       // Only update options if editor is not yet initialized to avoid re-init loop
-      this.editorOptions = { ...this.editorOptions, theme: this.isDarkMode ? 'vs-dark' : 'vs' };
+      this.editorOptions = { ...this.editorOptions, theme: isDark ? 'vs-dark' : 'vs' };
     }
   }
 
