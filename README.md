@@ -45,6 +45,27 @@ The source code is located in `projects/debugger/src`.
 
 This debugger is typically run alongside an A2UI client or server. It can be integrated into an application or run as a standalone tool to analyze captured logs.
 
+## SSE Stream Debugging
+
+The debugger supports connecting to an external Server-Sent Events (SSE) source to stream A2UI messages in real-time.
+
+1.  **Open the Debugger**: Launch the app as described above.
+2.  **Access SSE Controls**: In the **Message Log** panel header, click on **SSE Stream** to expand the controls.
+3.  **Connect**: Enter your SSE endpoint URL (default: `http://localhost:8000/stream`) and click **Connect**.
+4.  **View Updates**: As messages arrive, they will appear in the log, update the state/preview, and be appended to the input editor.
+
+### Testing with the Sample Server
+
+A sample Node.js SSE server is included to verify functionality.
+
+1.  **Run the test server**:
+    ```bash
+    node sse-server.js
+    ```
+    This starts a stream at `http://localhost:8000/stream`.
+
+2.  **Connect**: In the debugger, use the default URL and click **Connect**. You will see a simulated sequence of A2UI updates.
+
 ## License
 
 This project is licensed under the MIT license.
