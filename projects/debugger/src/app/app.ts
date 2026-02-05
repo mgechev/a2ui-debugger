@@ -16,7 +16,7 @@ import { TimelineComponent } from './timeline';
       </header>
       <div class="content-wrapper" (mouseup)="stopResize()" (mousemove)="onResize($event)" (mouseleave)="stopResize()">
         <div class="left-panel" [style.width.px]="leftPanelWidth">
-          <app-log-viewer></app-log-viewer>
+          <app-log-viewer [isDarkMode]="isDarkMode"></app-log-viewer>
         </div>
         <div class="splitter" (mousedown)="startResize($event)"></div>
         <div class="right-panel">

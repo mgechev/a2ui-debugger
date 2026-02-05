@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, inject, effect, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject, effect, signal, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { DebuggerService } from './debugger.service';
 import { Types } from '@a2ui/lit/0.8';
 import { CommonModule } from '@angular/common';
@@ -501,7 +501,8 @@ const A2UI_SCHEMA_0_9 = {
   standalone: true,
   imports: [CommonModule, FormsModule, JsonTreeComponent, MonacoEditorModule]
 })
-export class LogViewerComponent {
+export class LogViewerComponent implements OnChanges {
+  @Input() isDarkMode = false;
   @ViewChild('messageList') messageList!: ElementRef;
   debuggerService = inject(DebuggerService);
   messages = this.debuggerService.messages;
@@ -593,9 +594,25 @@ export class LogViewerComponent {
     });
   }
 
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['isDarkMode']) {
+      this.updateEditorTheme();
+    }
+  }
+
+  updateEditorTheme() {
+    if (this.editor && typeof monaco !== 'undefined') {
+      monaco.editor.setTheme(this.isDarkMode ? 'vs-dark' : 'vs');
+    } else {
+      // Only update options if editor is not yet initialized to avoid re-init loop
+      this.editorOptions = { ...this.editorOptions, theme: this.isDarkMode ? 'vs-dark' : 'vs' };
+    }
+  }
+
   onEditorInit(editor: any) {
     this.editor = editor;
     this.updateSchema(this.currentVersion());
+    this.updateEditorTheme();
 
     // Subscribe to content changes for custom logic if needed
     editor.onDidChangeModelContent(() => {
